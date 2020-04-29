@@ -9,6 +9,7 @@ DB = 'mitdb'
 REF_SAMPLES = 40
 SEARCH_SAMPLES = 72
 THRESHOLD = 0.48
+DETECTION_RANGE = 53
 
 def download_all_files():
     wfdb.dl_database(DB, DESTINATION_PATH, records=['100', '107', '108', '200', '203', '207', '222', '233'])
@@ -38,16 +39,47 @@ def find_R_peaks(ecg):
     return r_peaks
 
 
+def calculate_stats(annotatedX, detectedX):
+    fPos = []; fNeg = []; tPos = []
+    print('annotated:', len(annotatedX), '/ detected:', len(detectedX))
+
+    for anno in annotatedX:
+        inRange = list(filter(lambda x: x >= anno - DETECTION_RANGE and x <= anno + DETECTION_RANGE, detectedX))
+        if len(inRange) > 0:
+            tPos.append(inRange[0])
+        else:
+            fNeg.append(anno)
+
+    for det in detectedX:
+        inRange = list(filter(lambda x: x >= det - DETECTION_RANGE and x <= det + DETECTION_RANGE, annotatedX))
+        if len(inRange) == 0:
+            fPos.append(det)
+    
+    print('tPos:', len(tPos), 'fPos:', len(fPos), 'fNeg: ', len(fNeg))
+    return (tPos, fPos, fNeg)
+
+
 if __name__ == '__main__':
     # freeze_support()
     # download_all_files()
-    record = wfdb.rdrecord('db/100', sampto=5000)
+    filepath = 'db/100'
+    record = wfdb.rdrecord(filepath, sampto=5000)
+    anno = wfdb.rdann(filepath, 'atr', sampto=5000)
     signal_ch0 = list(map(lambda x: x[0], record.p_signal))
     ecg = np.array(signal_ch0)
     peaksR = find_R_peaks(ecg)
     peaksY = list(map(lambda x: x[1], peaksR))
     peaksX = list(map(lambda x: x[0], peaksR))
-    plt.plot(peaksX, peaksY, 'ro')
+
+    annoPeaksX = anno.sample
+    tPos, fPos, fNeg = calculate_stats(annoPeaksX, peaksX)
+    
     plt.plot(signal_ch0)
+    # plt.plot(peaksX, peaksY, 'ro')
+    plt.plot(annoPeaksX, ecg[annoPeaksX], 'bo')
+    plt.plot(tPos, ecg[tPos], 'go')
+    plt.plot(fPos, ecg[fPos], 'yo')
+    plt.plot(fNeg, ecg[fNeg], 'rx')
+
     plt.show()
 
