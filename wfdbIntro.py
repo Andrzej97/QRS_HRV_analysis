@@ -12,6 +12,7 @@ REF_SAMPLES = 20
 SEARCH_SAMPLES = 72
 THRESHOLD = 0.48
 DETECTION_RANGE = 53
+R_SYMBOLS = ['N', 'R', 'J', 'A', 'E', 'j', '/', 'Q']
 
 
 def download_all_files():
@@ -67,13 +68,14 @@ def calculate_stats(annotated_x, detected_x):
 
 def get_plot_data():
     record = wfdb.rdrecord(FILEPATH, sampto=5000)
-    anno = wfdb.rdann(FILEPATH, 'atr', sampto=5000)
+    ann = wfdb.rdann(FILEPATH, 'atr', sampto=5000)
+    annotations = list(filter(lambda x: x[1] in R_SYMBOLS, zip(ann.sample, ann.symbol)))
     signal_ch0 = list(map(lambda x: x[0], record.p_signal))
     ecg = np.array(signal_ch0)
     peaks_r = find_R_peaks(ecg)
     peaks_y = list(map(lambda x: x[1], peaks_r))
     peaks_x = list(map(lambda x: x[0], peaks_r))
-    anno_peaks_x = anno.sample
+    anno_peaks_x = list(map(lambda x: x[0], annotations))
     return signal_ch0, peaks_r, peaks_y, peaks_x, anno_peaks_x, ecg
 
 
