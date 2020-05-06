@@ -65,11 +65,13 @@ def calculate_stats(annotated_x, detected_x):
     print('t_pos:', len(t_pos), 'f_pos:', len(f_pos), 'f_neg: ', len(f_neg))
     return t_pos, f_pos, f_neg
 
+def get_r_samples(ann):
+    return list(filter(lambda x: x[1] in R_SYMBOLS, zip(ann.sample, ann.symbol)))
 
 def get_plot_data():
     record = wfdb.rdrecord(FILEPATH, sampto=5000)
     ann = wfdb.rdann(FILEPATH, 'atr', sampto=5000)
-    annotations = list(filter(lambda x: x[1] in R_SYMBOLS, zip(ann.sample, ann.symbol)))
+    annotations = get_r_samples(ann)
     signal_ch0 = list(map(lambda x: x[0], record.p_signal))
     ecg = np.array(signal_ch0)
     peaks_r = find_R_peaks(ecg)
