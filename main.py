@@ -11,7 +11,8 @@ DB = 'mitdb'
 REF_SAMPLES = 20
 SEARCH_SAMPLES = 72
 THRESHOLD = 0.48
-DETECTION_RANGE = 53
+DETECTION_X_RANGE = 53
+DETECTION_Y_RANGE = 0.1
 R_SYMBOLS = ['N', 'R', 'J', 'A', 'E', 'j', '/', 'Q']
 
 
@@ -44,24 +45,38 @@ def find_R_peaks(ecg):
     return r_peaks
 
 
-def calculate_stats(annotated_x, detected_x):
+def calculate_stats(signal_ch0, annotated_x, detected_x):
     f_pos = []
     f_neg = []
     t_pos = []
     print('annotated:', len(annotated_x), '/ detected:', len(detected_x))
 
     for anno in annotated_x:
-        in_range = list(filter(lambda x: anno - DETECTION_RANGE <= x <= anno + DETECTION_RANGE, detected_x))
+        in_range = list(filter(lambda x: anno - DETECTION_X_RANGE <= x <= anno + DETECTION_X_RANGE, detected_x))
+        in_y_range_found= False
         if len(in_range) > 0:
-            t_pos.append(in_range[0])
+            for x in in_range:
+                if abs(signal_ch0[anno] - signal_ch0[x]) <= DETECTION_Y_RANGE:
+                    t_pos.append(x)
+                    in_y_range_found = True
+                    break
+            if not in_y_range_found:
+                f_neg.append(anno)
         else:
             f_neg.append(anno)
 
     for det in detected_x:
-        in_range = list(filter(lambda x: det - DETECTION_RANGE <= x <= det + DETECTION_RANGE, annotated_x))
+        in_range = list(filter(lambda x: det - DETECTION_X_RANGE <= x <= det + DETECTION_X_RANGE, annotated_x))
         if len(in_range) == 0:
             f_pos.append(det)
-
+        else:
+            in_y_range_found = False
+            for x in in_range:
+                if abs(signal_ch0[det] - signal_ch0[x]) <= DETECTION_Y_RANGE:
+                    in_y_range_found = True
+                    break
+            if not in_y_range_found:
+                f_pos.append(det)
     print('t_pos:', len(t_pos), 'f_pos:', len(f_pos), 'f_neg: ', len(f_neg))
     return t_pos, f_pos, f_neg
 
@@ -83,7 +98,7 @@ def get_plot_data():
 
 def plot_data(subplot):
     signal_ch0, peaks_r, peaks_y, peaks_x, anno_peaks_x, ecg = get_plot_data()
-    t_pos, f_pos, f_neg = calculate_stats(anno_peaks_x, peaks_x)
+    t_pos, f_pos, f_neg = calculate_stats(signal_ch0, anno_peaks_x, peaks_x)
     subplot.cla()
     subplot.plot(signal_ch0)
     subplot.plot(peaks_x, peaks_y, 'ro')
@@ -94,11 +109,11 @@ def plot_data(subplot):
 
 
 def sliders_on_changed(val):
-    global REF_SAMPLES, SEARCH_SAMPLES, THRESHOLD, DETECTION_RANGE
+    global REF_SAMPLES, SEARCH_SAMPLES, THRESHOLD, DETECTION_X_RANGE
     REF_SAMPLES = int(ref_slider.val)
     SEARCH_SAMPLES = int(search_slider.val)
     THRESHOLD = threshold_slider.val
-    DETECTION_RANGE = int(detection_slider.val)
+    DETECTION_X_RANGE = int(detection_slider.val)
     plot_data(ax)
 
 
@@ -124,7 +139,7 @@ if __name__ == '__main__':
 
     # Draw another slider
     detections_samples_ax = plt.axes([0.25, 0.05, 0.65, 0.03])
-    detection_slider = Slider(detections_samples_ax, 'detection_samples', 1.0, 100.0, valinit=DETECTION_RANGE,
+    detection_slider = Slider(detections_samples_ax, 'detection_samples', 1.0, 100.0, valinit=DETECTION_X_RANGE,
                               valfmt='%0.0f')
 
     ref_slider.on_changed(sliders_on_changed)

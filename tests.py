@@ -26,7 +26,9 @@ def test_detection(file_numeber):
     real_r_peaks = get_real_r_peaks(filename)
     real_r_peaks_x = list(map(lambda x: x[0], real_r_peaks))
     print('file: ' + filename)
-    t_pos, f_pos, f_neg = main.calculate_stats(real_r_peaks_x, found_r_peaks_x)
+    record = wfdb.rdrecord(filename)
+    signal_ch0 = list(map(lambda x: x[0], record.p_signal))
+    t_pos, f_pos, f_neg = main.calculate_stats(signal_ch0, real_r_peaks_x, found_r_peaks_x)
     return len(real_r_peaks), len(t_pos), len(f_pos), len(f_neg)
 
 
