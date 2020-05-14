@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Slider
 
-FILEPATH = 'db/107'
+FILEPATH = 'db/100'
 DESTINATION_PATH = os.getcwd() + '/db'
 DB = 'mitdb'
-REF_SAMPLES = 20
+REF_SAMPLES = 40
 SEARCH_SAMPLES = 72
 THRESHOLD = 0.48
 DETECTION_X_RANGE = 53
-DETECTION_Y_RANGE = 0.1
+DETECTION_Y_RANGE = 0.5
 R_SYMBOLS = ['N', 'R', 'J', 'A', 'E', 'j', '/', 'Q']
 
 
@@ -24,18 +24,23 @@ def find_R_peaks(ecg):
     ref_samples = list(ecg[0:REF_SAMPLES])
     ref_samples_sum = sum(ref_samples)
     search_samples_left = 0
+    max_signal = 0
     max_diff_sample = (0, 0)
     r_peaks = []
     for sample in enumerate(ecg):
+        if sample[0] < REF_SAMPLES:
+            continue
         ref_signal = ref_samples_sum / REF_SAMPLES
-        signal = abs(sample[1] - ref_signal)
+        signal = sample[1] - ref_signal
         if signal > THRESHOLD:
-            if signal > max_diff_sample[1]:
+            if signal > max_signal:
+                max_signal = signal
                 max_diff_sample = sample
             if search_samples_left <= 0:
                 search_samples_left = SEARCH_SAMPLES
         if search_samples_left == 1:
             r_peaks.append(max_diff_sample)
+            max_signal = 0
             max_diff_sample = (0, 0)
         search_samples_left -= 1
 
@@ -49,6 +54,7 @@ def calculate_stats(signal_ch0, annotated_x, detected_x):
     f_pos = []
     f_neg = []
     t_pos = []
+    print(annotated_x)
     print('annotated:', len(annotated_x), '/ detected:', len(detected_x))
 
     for anno in annotated_x:
