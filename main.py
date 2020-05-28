@@ -50,6 +50,44 @@ def find_R_peaks(ecg):
     return r_peaks
 
 
+weights = [0.3, 0.25, 0.2, 0.15, 0.1, 0.05, 0.05, 0.05, 0.05, 0.05]
+PEAK_THRESHOLD = 0.3
+def find_R_peaks_weights(ecg):
+    old_r_peaks = find_R_peaks(ecg)
+    last_ten_peaks = old_r_peaks[:10]
+    last_ten_peaks.reverse()
+    r_peaks = []
+    max_signal = 0
+    max_diff_sample = (0,0)
+    search_samples_left = 0
+    expected_peak = get_expected_peak(last_ten_peaks)
+    for sample in enumerate(ecg):
+        if abs(sample[1] - expected_peak) < PEAK_THRESHOLD:
+            if sample[1] > max_signal:
+                max_signal = sample[1]
+                max_diff_sample = sample
+            if search_samples_left <= 0:
+                search_samples_left = SEARCH_SAMPLES
+        if search_samples_left == 1:
+            r_peaks.append(max_diff_sample)
+            last_ten_peaks.pop()
+            last_ten_peaks.insert(0,max_diff_sample)
+            print(expected_peak, max_diff_sample)
+            max_signal = 0
+            max_diff_sample = (0, 0)
+            expected_peak = get_expected_peak(last_ten_peaks)
+        search_samples_left -= 1
+
+    return r_peaks
+
+
+def get_expected_peak(last_ten):
+    expected = 0.0
+    for i in range(len(last_ten)):
+        expected += last_ten[i][1] * weights[i]
+
+    return expected/sum(weights)
+
 def calculate_stats(signal_ch0, annotated_x, detected_x):
     f_pos = []
     f_neg = []
@@ -95,7 +133,7 @@ def get_plot_data():
     annotations = get_r_samples(ann)
     signal_ch0 = list(map(lambda x: x[0], record.p_signal))
     ecg = np.array(signal_ch0)
-    peaks_r = find_R_peaks(ecg)
+    peaks_r = find_R_peaks_weights(ecg)
     peaks_y = list(map(lambda x: x[1], peaks_r))
     peaks_x = list(map(lambda x: x[0], peaks_r))
     anno_peaks_x = list(map(lambda x: x[0], annotations))
