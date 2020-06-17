@@ -208,8 +208,7 @@ def calculate_stats_for_tests(signal_ch0, annotated_x, detected_x):
     print('t_pos:', t_pos, 'f_pos:', f_pos, 'f_neg: ', f_neg)
     return t_pos, f_pos, f_neg
 
-def calculate_stats_for_tests_bitmap(signal_ch0, annotated_x, detected_x):
-    f_neg = 0
+def calculate_stats_for_tests_bitmap(annotated_x, detected_x):
     t_pos = 0
     print('annotated:', len(annotated_x), '/ detected:', len(detected_x))
 

@@ -11,37 +11,33 @@ FILES_FRAGMENTS = {'100': [('00:00:00.000', '00:30:05.600')],
                    '207': [('00:00:00.000', '00:29:08.500')]}
 
 
-def get_real_r_peaks(filename):
-    anno = wfdb.rdann(filename, 'atr')
+def get_real_r_peaks(anno):
     return main.get_r_samples(anno)
 
 
-def get_found_r_peaks(filename, weight, threshold):
-    record = wfdb.rdrecord(filename)
+def get_found_r_peaks(record, weight, threshold):
     signal_ch0 = list(map(lambda x: x[0], record.p_signal))
     ecg = np.array(signal_ch0)
     # return main.find_R_peaks(ecg)
     return main.find_R_peaks_weights2(ecg, weight, threshold)
 
 
-def test_detection(file_number, weight, threshold):
-    filename = 'db/' + file_number
+def test_detection(file_number, record, anno, weight, threshold):
     start_time = timer()
-    found_r_peaks = get_found_r_peaks(filename, weight, threshold)
+    found_r_peaks = get_found_r_peaks(record, weight, threshold)
     end_time = timer()
     # print('get_found_r_peaks took: ', end_time - start_time)
+    # TODO: filter below peaks by FILES_FRAGMENTS
     found_r_peaks_x = list(map(lambda x: x[0], found_r_peaks))
     start_time = timer()
-    real_r_peaks = get_real_r_peaks(filename)
+    real_r_peaks = get_real_r_peaks(anno)
     end_time = timer()
     # print('get_real_r_peaks took: ', end_time - start_time)
     real_r_peaks = filter_real_r_peaks(real_r_peaks, file_number)
     real_r_peaks_x = list(map(lambda x: x[0], real_r_peaks))
     # print('file: ' + filename)
-    record = wfdb.rdrecord(filename)
-    signal_ch0 = list(map(lambda x: x[0], record.p_signal))
     start_time = timer()
-    t_pos, f_pos, f_neg = main.calculate_stats_for_tests_bitmap(signal_ch0, real_r_peaks_x, found_r_peaks_x)
+    t_pos, f_pos, f_neg = main.calculate_stats_for_tests_bitmap(real_r_peaks_x, found_r_peaks_x)
     end_time = timer()
     # print('calculate_stats took: ', end_time - start_time)
     return len(real_r_peaks), t_pos, f_pos, f_neg
@@ -106,15 +102,18 @@ if __name__ == '__main__':
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(['File', 'Prev_weight', 'Y_threshold', 'R_annotations', 'Positive', '%ofPositive', 'FalsePositive', '%OfFalsePositive',
                          'FalseNegative', '%OfFalseNegative'])
-        weights = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
-        y_thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+        weights = [0.2]
+        y_thresholds = [0.1]
         for weight in weights:
             for threshold in y_thresholds:
                 print('weight: ' + str(weight) + ', threshold:' + str(threshold))
                 for file in FILES:
-                    anno, t_pos, f_pos, f_neg = test_detection(file, weight, threshold)
+                    filename = 'db/' + file
+                    record = wfdb.rdrecord(filename)
+                    anno = wfdb.rdann(filename, 'atr')
+                    annotations_len, t_pos, f_pos, f_neg = test_detection(file, record, anno, weight, threshold)
                     # write_stats_row(writer, file, weight, threshold, anno, t_pos, f_pos, f_neg)
-                    total_R_annotations += anno
+                    total_R_annotations += annotations_len
                     total_positive += t_pos
                     total_false_positive += f_pos
                     total_false_negative += f_neg
