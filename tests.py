@@ -5,14 +5,26 @@ import wfdb
 import numpy as np
 import main
 import json
+from os import listdir
+from os.path import isfile, join
+
+
+# TODO
+# Taśmy nie mają adnotacji lub mają ich za mało
+# 214 - 2
+# 111 - 0
+# 109 - 0
+FILES_TO_SKIP = ['214', '111', '109']
 
 SAMPLES_PER_SECOND = 360
-FILES = ['100', '107', '108', '200', '203', '207', '222', '233']
+# FILES = ['100', '107', '108', '200', '203', '207', '222', '233']
+FILES = list({f.split('.')[0] for f in listdir('./db') if isfile(join('./db', f))} - set(FILES_TO_SKIP))
+
 FILES_FRAGMENTS = {'100': [('00:00:00.000', '00:30:05.600')],
                    '207': [('00:00:00.000', '00:29:08.500')]}
 
 WEIGHTS = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
-Y_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+Y_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 def get_r_peaks_from(anno):
     return main.get_r_samples(anno)
@@ -77,15 +89,15 @@ def get_sec(time):
 def get_msec(time):
     return int(time[9:12])
 
-def create_stats(weight, threshold, t_pos, f_pos, f_neg):
+def create_stats(filename, annotaion_count, weight, threshold, t_pos, f_pos, f_neg):
     return {
+        'filename': filename,
+        'annotation_count': annotaion_count,
         'weight': weight,
         'threshold': threshold,
-        'stats': {
-            'true_positive': t_pos,
-            'false_positive': f_pos,
-            'false_negative': f_neg
-        }
+        'true_positive': t_pos,
+        'false_positive': f_pos,
+        'false_negative': f_neg
     }
 
 def test_file(file):
@@ -99,17 +111,12 @@ def test_file(file):
     anno_r_peaks_x = list(map(lambda x: x[0], anno_r_peaks))
     annotation_count = len(anno_r_peaks)
 
-    file_stats = {
-        'filename': file,
-        'annotation_count': annotation_count,
-        'measurements': []
-    }
-
+    file_stats = []
     for weight in WEIGHTS:
         for threshold in Y_THRESHOLDS:
             print('weight: ' + str(weight) + ', threshold:' + str(threshold))
             t_pos, f_pos, f_neg = test_detection(file, record_signal_ch0, anno_r_peaks_x, weight, threshold)
-            file_stats['measurements'].append(create_stats(weight, threshold, t_pos, f_pos, f_neg))
+            file_stats.append(create_stats(file, annotation_count, weight, threshold, t_pos, f_pos, f_neg))
 
     return file_stats
 
@@ -127,7 +134,7 @@ def test_all_multi_thr():
     with Pool(8) as p:
         res = p.map(test_file, FILES)
 
-    return res
+    return [itm for sublist in res for itm in sublist]  # flatten
 
 if __name__ == '__main__':
     # main.download_all_files()

@@ -17,7 +17,7 @@ R_SYMBOLS = ['N', 'R', 'J', 'A', 'E', 'j', '/', 'Q']
 
 
 def download_all_files():
-    wfdb.dl_database(DB, DESTINATION_PATH, records=['100', '107', '108', '200', '203', '207', '222', '233'])
+    wfdb.dl_database(DB, DESTINATION_PATH)
 
 
 def find_R_peaks(ecg):
