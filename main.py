@@ -13,7 +13,7 @@ SEARCH_SAMPLES = 72
 THRESHOLD = 0.48
 DETECTION_X_RANGE = 53
 DETECTION_Y_RANGE = 0.5
-R_SYMBOLS = ['N', 'R', 'J', 'A', 'E', 'j', '/', 'Q']
+R_SYMBOLS = ['N']
 
 
 def download_all_files():
@@ -212,31 +212,36 @@ def calculate_stats_for_tests_bitmap(annotated_x, detected_x):
     t_pos = 0
     print('annotated:', len(annotated_x), '/ detected:', len(detected_x))
 
-    bitmap_len = annotated_x[len(annotated_x) - 1] + REF_SAMPLES
-    anno_bitmap = np.zeros(bitmap_len)
-    det_bitmap = np.zeros(bitmap_len)
-    for x in annotated_x:
-        for i in range(0, REF_SAMPLES):
-            if x - i > 0:
-                anno_bitmap[x - i] = 1
-            anno_bitmap[x + i] = 1
-    for x in detected_x:
-        if x < bitmap_len:
-            det_bitmap[x] = 1
+    if len(annotated_x) > 0:
+        bitmap_len = annotated_x[len(annotated_x) - 1] + REF_SAMPLES
+        anno_bitmap = np.zeros(bitmap_len)
+        det_bitmap = np.zeros(bitmap_len)
+        for x in annotated_x:
+            for i in range(0, REF_SAMPLES):
+                if x - i > 0:
+                    anno_bitmap[x - i] = 1
+                anno_bitmap[x + i] = 1
+        for x in detected_x:
+            if x < bitmap_len:
+                det_bitmap[x] = 1
 
-    go_to_next_peak = False
-    for i in range(0, bitmap_len):
-        if anno_bitmap[i]:
-            if go_to_next_peak:
-                continue
-            if det_bitmap[i]:
-                t_pos += 1
-                go_to_next_peak = True
-        else:
-            go_to_next_peak = False
+        go_to_next_peak = False
+        for i in range(0, bitmap_len):
+            if anno_bitmap[i]:
+                if go_to_next_peak:
+                    continue
+                if det_bitmap[i]:
+                    t_pos += 1
+                    go_to_next_peak = True
+            else:
+                go_to_next_peak = False
 
-    f_neg = len(annotated_x) - t_pos
-    f_pos = len(detected_x) - t_pos
+        f_neg = len(annotated_x) - t_pos
+        f_pos = len(detected_x) - t_pos
+    else:
+        t_pos = 0
+        f_neg = 0
+        f_pos = len(detected_x)
     print('t_pos:', t_pos, 'f_pos:', f_pos, 'f_neg: ', f_neg)
     return t_pos, f_pos, f_neg
 
