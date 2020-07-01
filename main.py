@@ -123,7 +123,7 @@ def find_R_peaks_weights2(ecg, weight, threshold):
     search_samples_left = 0
     expected_peak = get_expected_peak(last_ten_peaks)
     for sample in enumerate(ecg):
-        if abs(sample[1] - expected_peak) < threshold:
+        if abs(sample[1] - expected_peak) < (threshold * expected_peak):
             if sample[1] > max_signal:
                 max_signal = sample[1]
                 max_diff_sample = sample
