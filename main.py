@@ -135,8 +135,8 @@ def find_R_peaks_weights2(ecg, weight, threshold):
             last_ten_peaks.insert(0,max_diff_sample)
             # print(expected_peak, max_diff_sample)
             max_signal = 0
-            max_diff_sample = (0, 0)
             expected_peak = (1 - weight) * expected_peak + weight * max_diff_sample[1]
+            max_diff_sample = (0, 0)
         search_samples_left -= 1
 
     return r_peaks
@@ -254,7 +254,7 @@ def get_plot_data():
     annotations = get_r_samples(ann)
     signal_ch0 = list(map(lambda x: x[0], record.p_signal))
     ecg = np.array(signal_ch0)
-    peaks_r = find_R_peaks_weights(ecg)
+    peaks_r = find_R_peaks_weights2(ecg, 0.9, 0.4)
     peaks_y = list(map(lambda x: x[1], peaks_r))
     peaks_x = list(map(lambda x: x[0], peaks_r))
     anno_peaks_x = list(map(lambda x: x[0], annotations))
