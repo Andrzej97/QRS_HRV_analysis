@@ -4,8 +4,9 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Slider
+import math
 
-FILEPATH = 'db/100'
+FILEPATH = 'db/217'
 DESTINATION_PATH = os.getcwd() + '/db'
 DB = 'mitdb'
 REF_SAMPLES = 40
@@ -14,6 +15,8 @@ THRESHOLD = 0.48
 DETECTION_X_RANGE = 53
 DETECTION_Y_RANGE = 0.5
 R_SYMBOLS = ['N']
+
+
 
 
 def download_all_files():
@@ -121,6 +124,7 @@ def find_R_peaks_weights2(ecg, weight, threshold):
     max_signal = 0
     max_diff_sample = (0,0)
     search_samples_left = 0
+    last_peak_sample = -72
     expected_peak = get_expected_peak(last_ten_peaks)
     for sample in enumerate(ecg):
         if abs(sample[1] - expected_peak) < (threshold * expected_peak):
@@ -130,7 +134,11 @@ def find_R_peaks_weights2(ecg, weight, threshold):
             if search_samples_left <= 0:
                 search_samples_left = SEARCH_SAMPLES
         if search_samples_left == 1:
-            r_peaks.append(max_diff_sample)
+            if (sample[0] - last_peak_sample) >= 72:
+                r_peaks.append(max_diff_sample)
+                last_peak_sample = sample[0]
+            else:
+                print('???')
             last_ten_peaks.pop()
             last_ten_peaks.insert(0,max_diff_sample)
             # print(expected_peak, max_diff_sample)
@@ -148,6 +156,199 @@ def get_expected_peak(last_ten):
         expected += last_ten[i][1] * weights[i]
 
     return expected/sum(weights)
+
+
+def correct_r_peaks(peaks, ecg):
+    corrected_peaks = []
+    for p in peaks:
+        fr = max(0, p - 10)
+        to = min(len(ecg) - 1, p + 10)
+        sub = ecg[fr : to]
+        m = fr + max(range(len(sub)), key=sub.__getitem__)
+        # m = max(sub, key=lambda x: ecg[x])
+        corrected_peaks.append(m)
+
+
+    return corrected_peaks
+
+
+def get_shift(current_window):
+    max_elem_idx = max(range(len(current_window)), key=current_window.__getitem__)
+    return len(current_window) - max_elem_idx - 1
+
+
+def ff(ecg):
+    # Running median elements
+    N = 3 
+    Nd = 2
+
+    # Preprocessing variables
+    padding = max(N, Nd, 10)
+    i = 0
+    current_window = []
+    derivated_window = []
+
+    # Threshold stage constants
+    qrs_interval = 21 # 60ms
+    rr_min = 72 # 200ms
+    p_threshold = 0.7 * 360 / 128 + 4.7
+
+    # Threshold stage variables
+    counter = 0
+    state = 1
+    max_peak = (-1, -1, -1) # (index, value, shift)
+    r_peaks = []
+    r_peaks_pos = []
+    th = 0
+
+    for value in ecg: 
+
+        # collecting initial data
+        if i < padding:
+            current_window.append(value)
+            derivated_window.append(value)
+            i += 1
+            continue
+
+        # Preprocessing
+        current_window.append(value)
+        derivated_window.append(value - current_window[-Nd])
+
+        integrated_value = np.sum(derivated_window[-1:-1-N:-1]) * 1 / (N - 1)
+        processed_value = integrated_value ** 2
+
+        # Analysis
+        if state == 1:
+            counter += 1
+            if processed_value > max_peak[1]:
+                max_peak = (i, processed_value, get_shift(current_window))
+
+            if counter > rr_min + qrs_interval:
+                counter = i - max_peak[0]
+                state = 2
+
+                r_peaks.append(max_peak[1])
+                r_peaks_pos.append(max_peak[0] - max_peak[2])
+
+        elif state == 2:
+            counter += 1
+            if counter > rr_min:
+                th = np.mean(r_peaks)
+                state = 3
+
+        elif state == 3:
+            if processed_value > th:
+                counter = 0
+                state = 1
+                max_peak = (-1, -1)
+            else:
+                th = th * math.exp(-p_threshold / 360)
+
+        current_window.pop(0)
+        derivated_window.pop(0)
+        i += 1
+
+    # plt.plot(ecg)
+    # plt.plot(r_peaks_pos, ecg[r_peaks_pos], 'rx')
+
+    return list(map(lambda x: (x, ecg[x]), r_peaks_pos))
+
+
+
+def ff2(ecg):
+    N = 8
+    Nd = N - 1
+
+    y0 = []
+    for i in enumerate(ecg):
+        if i[0] < Nd:
+            y0.append(i[1])
+            continue
+
+        y0.append(i[1] - ecg[i[0] - Nd])
+        # y0.append(1 - math.pow(i[1], -Nd))
+
+
+    y1 = []
+    for i in enumerate(y0):
+        if i[0] - N + 1 < 0:
+            y1.append(i[1])
+            continue
+
+        s = 0
+        for q in range(N):
+            s += y0[i[0] - q]
+
+        x = 1 / (N - 1) * s
+        y1.append(x)
+
+    y = []
+    for i in y1:
+        y.append(i * i)
+
+    qrs_interval = 21 # 60ms
+    rr_min = 72 # 200ms
+    counter = 0
+    state = 1
+    max_peak = (-1, -1) # (index, value)
+    r_peaks = []
+    r_peaks_pos = []
+
+    th = 0
+    pth = 0.7 * 360 / 128 + 4.7
+    for idx, val in enumerate(ecg):
+        if state == 1:
+            counter += 1
+            if val > max_peak[1]:
+                max_peak = (idx, val)
+
+            if counter > rr_min + qrs_interval:
+                counter = idx - max_peak[0]
+                state = 2
+                r_peaks.append(max_peak[1])
+                r_peaks_pos.append(max_peak[0])
+
+        elif state == 2:
+            counter += 1
+            if counter > rr_min:
+                th = np.mean(r_peaks)
+                state = 3
+
+        elif state == 3:
+            # plt.plot(idx, th, 'bx')
+            if val > th:
+                counter = 0
+                state = 1
+                max_peak = (-1, -1)
+
+            else:
+                th = th * math.exp(-pth / 360)
+                # th = 0
+
+
+    # plt.plot(y0)
+    # plt.plot(y1)
+
+    # plt.plot(y)
+    # r_peaks_pos = list(map(lambda x: x - N))
+    y = np.array(y)
+    # y0 = np.array(y0)
+    y1 = np.array(y1)
+    plt.plot(ecg, 'g-')
+    # plt.plot(y0)
+
+    r_peaks_pos = correct_r_peaks(r_peaks_pos, ecg)
+
+    plt.plot(r_peaks_pos, ecg[r_peaks_pos], 'rx')
+    # plt.plot(r_peaks_pos, y[r_peaks_pos], 'cx')
+
+    # print(len(y0))
+    # print(len(y1))
+    # print(len(y))
+    # print(len(ecg))
+    # print(r_peaks)
+    return list(map(lambda x: (x, y[x]), r_peaks_pos))
+
 
 def calculate_stats(signal_ch0, annotated_x, detected_x):
     f_pos = []
@@ -252,25 +453,34 @@ def get_plot_data():
     record = wfdb.rdrecord(FILEPATH, sampto=5000)
     ann = wfdb.rdann(FILEPATH, 'atr', sampto=5000)
     annotations = get_r_samples(ann)
-    signal_ch0 = list(map(lambda x: x[0], record.p_signal))
+    anno_peaks_x = list(map(lambda x: x[0], annotations))
+    signal_ch0 = list(map(lambda x: x[1], record.p_signal))
     ecg = np.array(signal_ch0)
-    peaks_r = find_R_peaks_weights2(ecg, 0.9, 0.4)
+
+    # if FILEPATH in ['db/108']:
+    #     ecg = np.array(-ecg)
+
+    peaks_r = ff(ecg)
     peaks_y = list(map(lambda x: x[1], peaks_r))
     peaks_x = list(map(lambda x: x[0], peaks_r))
-    anno_peaks_x = list(map(lambda x: x[0], annotations))
+
+
+
+    print(record.__dict__)
     return signal_ch0, peaks_r, peaks_y, peaks_x, anno_peaks_x, ecg
 
 
-def plot_data(subplot):
+def plot_data():
     signal_ch0, peaks_r, peaks_y, peaks_x, anno_peaks_x, ecg = get_plot_data()
-    t_pos, f_pos, f_neg = calculate_stats(signal_ch0, anno_peaks_x, peaks_x)
-    subplot.cla()
-    subplot.plot(signal_ch0)
-    subplot.plot(peaks_x, peaks_y, 'ro')
-    subplot.plot(anno_peaks_x, ecg[anno_peaks_x], 'bo')
-    subplot.plot(t_pos, ecg[t_pos], 'go')
-    subplot.plot(f_pos, ecg[f_pos], 'yo')
-    subplot.plot(f_neg, ecg[f_neg], 'rx')
+    t_pos, f_pos, f_neg = calculate_stats_for_tests_bitmap(anno_peaks_x, peaks_x)
+    # subplot.cla()
+    # plt.plot(signal_ch0)
+    # plt.plot(peaks_x, peaks_y, 'ro')
+    plt.plot(anno_peaks_x, ecg[anno_peaks_x], 'bo')
+    # plt.plot(t_pos, ecg[t_pos], 'go')
+    # plt.plot(f_pos, ecg[f_pos], 'yo')
+    # plt.plot(f_neg, ecg[f_neg], 'rx')
+    plt.show()
 
 
 def sliders_on_changed(val):
@@ -286,29 +496,30 @@ if __name__ == '__main__':
     # freeze_support()
     # download_all_files()
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    fig.subplots_adjust(bottom=0.3)
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # fig.subplots_adjust(bottom=0.3)
 
-    plot_data(ax)
+    plot_data()
 
-    ref_samples_ax = plt.axes([0.25, 0.15, 0.65, 0.03])
-    ref_slider = Slider(ref_samples_ax, 'ref samples', 1, 100, valinit=REF_SAMPLES, valfmt='%0.0f')
+    # ref_samples_ax = plt.axes([0.25, 0.15, 0.65, 0.03])
+    # ref_slider = Slider(ref_samples_ax, 'ref samples', 1, 100, valinit=REF_SAMPLES, valfmt='%0.0f')
 
-    # Draw another slider
-    search_saples_ax = plt.axes([0.25, 0.1, 0.65, 0.03])
-    search_slider = Slider(search_saples_ax, 'search samples', 1, 100, valinit=SEARCH_SAMPLES, valfmt='%0.0f')
+    # # Draw another slider
+    # search_saples_ax = plt.axes([0.25, 0.1, 0.65, 0.03])
+    # search_slider = Slider(search_saples_ax, 'search samples', 1, 100, valinit=SEARCH_SAMPLES, valfmt='%0.0f')
 
-    threshold_ax = plt.axes([0.25, 0.20, 0.65, 0.03])
-    threshold_slider = Slider(threshold_ax, 'threshold', 0.01, 1.0, valinit=THRESHOLD)
+    # threshold_ax = plt.axes([0.25, 0.20, 0.65, 0.03])
+    # threshold_slider = Slider(threshold_ax, 'threshold', 0.01, 1.0, valinit=THRESHOLD)
 
-    # Draw another slider
-    detections_samples_ax = plt.axes([0.25, 0.05, 0.65, 0.03])
-    detection_slider = Slider(detections_samples_ax, 'detection_samples', 1.0, 100.0, valinit=DETECTION_X_RANGE,
-                              valfmt='%0.0f')
+    # # Draw another slider
+    # detections_samples_ax = plt.axes([0.25, 0.05, 0.65, 0.03])
+    # detection_slider = Slider(detections_samples_ax, 'detection_samples', 1.0, 100.0, valinit=DETECTION_X_RANGE,
+    #                           valfmt='%0.0f')
 
-    ref_slider.on_changed(sliders_on_changed)
-    search_slider.on_changed(sliders_on_changed)
-    threshold_slider.on_changed(sliders_on_changed)
-    detection_slider.on_changed(sliders_on_changed)
-    plt.show()
+    # ref_slider.on_changed(sliders_on_changed)
+    # search_slider.on_changed(sliders_on_changed)
+    # threshold_slider.on_changed(sliders_on_changed)
+    # detection_slider.on_changed(sliders_on_changed)
+    # plt.show()
+

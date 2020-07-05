@@ -14,17 +14,31 @@ from os.path import isfile, join
 # 214 - 2
 # 111 - 0
 # 109 - 0
-FILES_TO_SKIP = ['107', '109', '111', '118', '124', '207', '214', '232']
+
+# TODO
+# 200 - przesunięte adnotacje?
+# 108 - odwrócona?
+
+# 102, 217
+
+FILES_TO_SKIP = ['104', '107', '108', '109', '111', '118', '124', '207', '214', '232', '200']
+
+
+
+# TODO??
+# 107, 117, 114
 
 SAMPLES_PER_SECOND = 360
-# FILES = ['100', '107', '108', '200', '203', '207', '222', '233']
+# FILES = list(set(['100', '107', '108', '200', '203', '207', '222', '233']) - set(FILES_TO_SKIP))
 FILES = list({f.split('.')[0] for f in listdir('./db') if isfile(join('./db', f))} - set(FILES_TO_SKIP))
 
 FILES_FRAGMENTS = {'100': [('00:00:00.000', '00:30:05.600')],
                    '207': [('00:00:00.000', '00:29:08.500')]}
 
-WEIGHTS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
-Y_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+# WEIGHTS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+WEIGHTS = [0.05]
+# Y_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+Y_THRESHOLDS = [0.1]
 
 def get_r_peaks_from(anno):
     return main.get_r_samples(anno)
@@ -39,7 +53,8 @@ def calculate_stats_for_tests_bitmap(anno_r_peaks_x, found_r_peaks_x):
      return main.calculate_stats_for_tests_bitmap(anno_r_peaks_x, found_r_peaks_x)
 
 def test_detection(file_number, record_signal_ch0, anno_r_peaks_x, weight, threshold):
-    found_r_peaks = get_found_r_peaks(record_signal_ch0, weight, threshold)
+    # found_r_peaks = get_found_r_peaks(record_signal_ch0, weight, threshold)
+    found_r_peaks = main.ff(record_signal_ch0)
 
     found_r_peaks = filter_r_peaks(found_r_peaks, file_number)
     found_r_peaks_x = list(map(lambda x: x[0], found_r_peaks))
