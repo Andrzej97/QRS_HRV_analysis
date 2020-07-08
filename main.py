@@ -14,7 +14,7 @@ SEARCH_SAMPLES = 72
 THRESHOLD = 0.48
 DETECTION_X_RANGE = 53
 DETECTION_Y_RANGE = 0.5
-R_SYMBOLS = ['N']
+R_SYMBOLS = ['N', 'f', 'V', '/', 'L', 'R', 'A']
 
 
 
@@ -158,20 +158,6 @@ def get_expected_peak(last_ten):
     return expected/sum(weights)
 
 
-def correct_r_peaks(peaks, ecg):
-    corrected_peaks = []
-    for p in peaks:
-        fr = max(0, p - 10)
-        to = min(len(ecg) - 1, p + 10)
-        sub = ecg[fr : to]
-        m = fr + max(range(len(sub)), key=sub.__getitem__)
-        # m = max(sub, key=lambda x: ecg[x])
-        corrected_peaks.append(m)
-
-
-    return corrected_peaks
-
-
 def get_shift(current_window):
     max_elem_idx = max(range(len(current_window)), key=current_window.__getitem__)
     return len(current_window) - max_elem_idx - 1
@@ -179,8 +165,8 @@ def get_shift(current_window):
 
 def ff(ecg):
     # Running median elements
-    N = 3 
-    Nd = 2
+    N = 8
+    Nd = 7
 
     # Preprocessing variables
     padding = max(N, Nd, 10)
@@ -248,106 +234,7 @@ def ff(ecg):
         derivated_window.pop(0)
         i += 1
 
-    # plt.plot(ecg)
-    # plt.plot(r_peaks_pos, ecg[r_peaks_pos], 'rx')
-
     return list(map(lambda x: (x, ecg[x]), r_peaks_pos))
-
-
-
-def ff2(ecg):
-    N = 8
-    Nd = N - 1
-
-    y0 = []
-    for i in enumerate(ecg):
-        if i[0] < Nd:
-            y0.append(i[1])
-            continue
-
-        y0.append(i[1] - ecg[i[0] - Nd])
-        # y0.append(1 - math.pow(i[1], -Nd))
-
-
-    y1 = []
-    for i in enumerate(y0):
-        if i[0] - N + 1 < 0:
-            y1.append(i[1])
-            continue
-
-        s = 0
-        for q in range(N):
-            s += y0[i[0] - q]
-
-        x = 1 / (N - 1) * s
-        y1.append(x)
-
-    y = []
-    for i in y1:
-        y.append(i * i)
-
-    qrs_interval = 21 # 60ms
-    rr_min = 72 # 200ms
-    counter = 0
-    state = 1
-    max_peak = (-1, -1) # (index, value)
-    r_peaks = []
-    r_peaks_pos = []
-
-    th = 0
-    pth = 0.7 * 360 / 128 + 4.7
-    for idx, val in enumerate(ecg):
-        if state == 1:
-            counter += 1
-            if val > max_peak[1]:
-                max_peak = (idx, val)
-
-            if counter > rr_min + qrs_interval:
-                counter = idx - max_peak[0]
-                state = 2
-                r_peaks.append(max_peak[1])
-                r_peaks_pos.append(max_peak[0])
-
-        elif state == 2:
-            counter += 1
-            if counter > rr_min:
-                th = np.mean(r_peaks)
-                state = 3
-
-        elif state == 3:
-            # plt.plot(idx, th, 'bx')
-            if val > th:
-                counter = 0
-                state = 1
-                max_peak = (-1, -1)
-
-            else:
-                th = th * math.exp(-pth / 360)
-                # th = 0
-
-
-    # plt.plot(y0)
-    # plt.plot(y1)
-
-    # plt.plot(y)
-    # r_peaks_pos = list(map(lambda x: x - N))
-    y = np.array(y)
-    # y0 = np.array(y0)
-    y1 = np.array(y1)
-    plt.plot(ecg, 'g-')
-    # plt.plot(y0)
-
-    r_peaks_pos = correct_r_peaks(r_peaks_pos, ecg)
-
-    plt.plot(r_peaks_pos, ecg[r_peaks_pos], 'rx')
-    # plt.plot(r_peaks_pos, y[r_peaks_pos], 'cx')
-
-    # print(len(y0))
-    # print(len(y1))
-    # print(len(y))
-    # print(len(ecg))
-    # print(r_peaks)
-    return list(map(lambda x: (x, y[x]), r_peaks_pos))
 
 
 def calculate_stats(signal_ch0, annotated_x, detected_x):

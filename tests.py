@@ -8,29 +8,13 @@ import json
 from os import listdir
 from os.path import isfile, join
 
-
 # TODO
-# Taśmy nie mają adnotacji lub mają ich za mało
-# 214 - 2
-# 111 - 0
-# 109 - 0
-
-# TODO
-# 200 - przesunięte adnotacje?
 # 108 - odwrócona?
 
-# 102, 217
-
-FILES_TO_SKIP = ['104', '107', '108', '109', '111', '118', '124', '207', '214', '232', '200']
-
-
-
-# TODO??
-# 107, 117, 114
-
+FILES_TO_SKIP = []
 SAMPLES_PER_SECOND = 360
-# FILES = list(set(['100', '107', '108', '200', '203', '207', '222', '233']) - set(FILES_TO_SKIP))
-FILES = list({f.split('.')[0] for f in listdir('./db') if isfile(join('./db', f))} - set(FILES_TO_SKIP))
+
+FILES = list({f.split('.')[0] for f in listdir('./db') if isfile(join('./db', f))} - set(FILES_TO_SKIP) - {'.'})
 
 FILES_FRAGMENTS = {'100': [('00:00:00.000', '00:30:05.600')],
                    '207': [('00:00:00.000', '00:29:08.500')]}
@@ -146,7 +130,7 @@ def test_all_single_thr():
 @timer
 def test_all_multi_thr():
     res = []
-    with Pool(8) as p:
+    with Pool(16) as p:
         res = p.map(test_file, FILES)
 
     return [itm for sublist in res for itm in sublist]  # flatten
