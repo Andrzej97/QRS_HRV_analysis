@@ -16,8 +16,7 @@ SAMPLES_PER_SECOND = 360
 
 FILES = list({f.split('.')[0] for f in listdir('./db') if isfile(join('./db', f))} - set(FILES_TO_SKIP) - {'.'})
 
-FILES_FRAGMENTS = {'100': [('00:00:00.000', '00:30:05.600')],
-                   '207': [('00:00:00.000', '00:29:08.500')]}
+FILES_FRAGMENTS = {'100': [('00:00:00.000', '00:30:05.600')]}
 
 # WEIGHTS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
 WEIGHTS = [0.05]

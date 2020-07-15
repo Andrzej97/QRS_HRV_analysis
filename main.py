@@ -14,7 +14,7 @@ SEARCH_SAMPLES = 72
 THRESHOLD = 0.48
 DETECTION_X_RANGE = 53
 DETECTION_Y_RANGE = 0.5
-R_SYMBOLS = ['N', 'f', 'V', '/', 'L', 'R', 'A']
+R_SYMBOLS = ['N', 'V', 'L', 'R', '/', 'f', 'A', 'E', 'Q', 'F', 'j', 'J', 'a', 'S', 'e']
 
 
 
