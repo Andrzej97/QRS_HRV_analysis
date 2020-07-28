@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Slider
 import math
+import tests
 
 FILEPATH = 'db/217'
 DESTINATION_PATH = os.getcwd() + '/db'
@@ -210,11 +211,11 @@ def ff(ecg):
                 max_peak = (i, processed_value, get_shift(current_window))
 
             if counter > rr_min + qrs_interval:
-                counter = i - max_peak[0]
-                state = 2
-
-                r_peaks.append(max_peak[1])
-                r_peaks_pos.append(max_peak[0] - max_peak[2])
+                if max_peak[1] - 0.056 > processed_value:
+                    counter = i - max_peak[0]
+                    state = 2
+                    r_peaks.append(max_peak[1])
+                    r_peaks_pos.append(max_peak[0] - max_peak[2])
 
         elif state == 2:
             counter += 1
@@ -319,6 +320,7 @@ def calculate_stats_for_tests_bitmap(annotated_x, detected_x):
                 if go_to_next_peak:
                     continue
                 if det_bitmap[i]:
+                    # det_bitmap[i] = 0
                     t_pos += 1
                     go_to_next_peak = True
             else:
@@ -331,6 +333,10 @@ def calculate_stats_for_tests_bitmap(annotated_x, detected_x):
         f_neg = 0
         f_pos = len(detected_x)
     print('t_pos:', t_pos, 'f_pos:', f_pos, 'f_neg: ', f_neg)
+    # print('false positives:')
+    # for i in range(0, bitmap_len):
+    #     if det_bitmap[i] == 1:
+    #         print(tests.sample_to_time(i) + ', orig: ' + str(i))
     return t_pos, f_pos, f_neg
 
 def get_r_samples(ann):
