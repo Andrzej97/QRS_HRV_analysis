@@ -35,7 +35,28 @@ def time_domain(rrs, signal_freq):
 
 
 def geometric(rrs, signal_freq):
-    pass
+    rr_s = list(map(lambda x: x[0] / signal_freq, rrs))
+    nn_int = np.diff(rr_s)  # intervals in [s] between beats
+    nn_int = list(filter(lambda x: x <= MAX_RR_DURATION, nn_int))
+
+    plt.title('Sample density distribution of NN interval durations')
+    plt.xlabel('NN intervals duration [s]')
+    plt.ylabel('Interval duration count')
+    plt.hist(nn_int, bins=30)
+    plt.show()
+
+    successive_differences = np.diff(nn_int)
+    plt.title('Sample density distribution of differences between adjacent NN intervals')
+    plt.xlabel('Adjacent NN intervals duration [s]')
+    plt.ylabel('Adjacent interval duration count')
+    plt.hist(successive_differences, bins=30)
+    plt.show()
+
+    plt.title('Poincare plot')
+    plt.xlabel('NN_n [s]')
+    plt.ylabel('NN_n+1 [s]')
+    plt.scatter(nn_int[:-1], nn_int[1:])
+    plt.show()
 
 
 def frequency_domain(rrs, signal_freq):
