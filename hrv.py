@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 from scipy import signal
 from scipy.interpolate import interp1d
 from scipy.integrate import trapz
@@ -38,6 +39,7 @@ def time_domain(rrs, signal_freq):
 
 
 def geometric(rrs, signal_freq):
+    rrs = rrs[:1000]
     rr_s = list(map(lambda x: x[0] / signal_freq, rrs))
     nn_int = np.diff(rr_s)  # intervals in [s] between beats
     nn_int = list(filter(lambda x: x <= MAX_RR_DURATION, nn_int))
@@ -59,6 +61,15 @@ def geometric(rrs, signal_freq):
     plt.xlabel('NN_n [s]')
     plt.ylabel('NN_n+1 [s]')
     plt.scatter(nn_int[:-1], nn_int[1:])
+
+    x_plus = np.array(nn_int[:-1])
+    x_minus = np.array(nn_int[1:])
+
+    sd1 = np.sqrt(0.5) * np.std(np.array(nn_int[1:]) - np.array(nn_int[:-1]))
+    sd2 = np.sqrt(0.5) * np.std(np.array(nn_int[1:]) + np.array(nn_int[:-1]))
+    m = np.mean(nn_int)
+    e1 = Ellipse((m, m), 2*sd1, 2*sd2, angle=-45, fill=False)
+    plt.gca().add_patch(e1)
     plt.show()
 
 
