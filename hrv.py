@@ -157,4 +157,23 @@ def frequency_domain(rrs, signal_freq):
 
 
 def non_linear(rrs, signal_freq):
-    pass
+    rr_s = list(map(lambda x: x[0] / signal_freq, rrs))
+    nn_int = np.diff(rr_s)  # intervals in [s] between beats
+    nn_int = list(filter(lambda x: x <= MAX_RR_DURATION, nn_int))
+    successive_differences = np.diff(nn_int)
+    
+    plt.title('Poincare plot')
+    plt.xlabel('NN_n [s]')
+    plt.ylabel('NN_n+1 [s]')
+    plt.scatter(nn_int[:-1], nn_int[1:], s=1)
+
+    sd1 = np.sqrt(np.std(successive_differences, ddof=1) ** 2 * 0.5)
+    sd2 = np.sqrt(2 * np.std(successive_differences, ddof=1) ** 2 - 0.5 * np.std(successive_differences, ddof=1) ** 2)
+
+    m = np.mean(nn_int)
+    e1 = Ellipse((m, m), 2*sd1 + 0.01, 2*sd2 + 0.01, angle=-45, fill=False)
+    plt.xlim(min(nn_int) - 0.01, max(nn_int) + 0.01)
+    plt.ylim(min(nn_int) - 0.01, max(nn_int) + 0.01)
+    plt.gca().add_patch(e1)
+    plt.show()
+    
