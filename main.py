@@ -23,34 +23,147 @@ R_SYMBOLS = ['N', 'V', 'L', 'R', '/', 'f', 'A', 'E', 'Q', 'F', 'j', 'J', 'a', 'S
 def download_all_files():
     wfdb.dl_database(DB, DESTINATION_PATH)
 
+def find_R_peaks_freshest(ecg, threshold, weight):
+    THRESHOLD_MUL = threshold
+    WEIGHT = weight
+    first_peak = get_first_peak_by_ff(ecg)
+    # print('first_peak: ', first_peak)
+    peaks = []
+    peaks.append(first_peak)
+    # print('peaks: ', peaks)
+    max_signal_y = -100
+    expected_peak = first_peak[1]
+    timer = -1
+    for i in range(first_peak[0] + 72, len(ecg)):
+        if ecg[i] >= expected_peak * THRESHOLD_MUL and ecg[i] > max_signal_y:
+            max_signal_y = ecg[i]
+            max_signal_x = i
+            # if not is_timer_started:
+            if timer <= 0:
+                timer = 72
+        timer = timer - 1
+        if timer == 0:
+            peak = (max_signal_x, max_signal_y)
+            # print('peak: ', peak)
+            expected_peak = expected_peak * WEIGHT + max_signal_y * (1 - WEIGHT)
+            # print('expected_peak: ', expected_peak)
+            peaks.append(peak)
+            max_signal_y = -100
+            # max_signal_x = 0
 
-def find_R_peaks(ecg):
+    print(peaks[0:100])
+    return peaks
+
+def get_first_peak_by_ff(ecg):
+    # Running median elements
+    N = 8
+    Nd = 7
+
+    # Preprocessing variables
+    padding = max(N, Nd, 10)
+    i = 0
+    current_window = []
+    derivated_window = []
+
+    # Threshold stage constants
+    qrs_interval = 21  # 60ms
+    rr_min = 72  # 200ms
+    p_threshold = 0.7 * 360 / 128 + 4.7
+
+    # Threshold stage variables
+    counter = 0
+    state = 1
+    max_peak = (-1, -1, -1)  # (index, value, shift)
+    r_peaks = []
+    r_peaks_pos = []
+    th = 0
+
+    values_sum = 0
+    i_ = 0
+    for value in ecg:
+        values_sum += value
+        i_ += 1
+        mean_signal = values_sum / i_
+
+        # collecting initial data
+        if i < padding:
+            current_window.append(value)
+            derivated_window.append(value)
+            i += 1
+            continue
+
+        # Preprocessing
+        current_window.append(value)
+        derivated_window.append(value - current_window[-Nd])
+
+        integrated_value = np.sum(derivated_window[-1:-1 - N:-1]) * 1 / (N - 1)
+        processed_value = integrated_value ** 2
+
+        # Analysis
+        if state == 1:
+            counter += 1
+            if processed_value > max_peak[1]:
+                max_peak = (i, processed_value, get_shift(current_window))
+
+            if counter > rr_min + qrs_interval:
+                if max_peak[1] - 0.4 + mean_signal / 12.0 > processed_value:
+                    counter = i - max_peak[0]
+                    state = 2
+                    r_peaks.append(max_peak[1])
+                    r_peaks_pos.append(max_peak[0] - max_peak[2])
+
+        elif state == 2:
+            counter += 1
+            if counter > rr_min:
+                th = np.mean(r_peaks)
+                state = 3
+
+        elif state == 3:
+            if processed_value > th:
+                counter = 0
+                state = 1
+                max_peak = (-1, -1)
+            else:
+                th = th * math.exp(-p_threshold / 360)
+
+        current_window.pop(0)
+        derivated_window.pop(0)
+        i += 1
+
+        if len(r_peaks_pos) > 0:
+            break
+
+    # return list(map(lambda x: (x, ecg[x]), r_peaks_pos))
+    return (r_peaks_pos[0], ecg[r_peaks_pos[0]])
+
+def find_R_peaks(ecg, ref_smaples, threshold):
+    REF_SAMPLES = ref_smaples
+    THRESHOLD = 0.27
+    SEARCH_SAMPLES = threshold
     ref_samples = list(ecg[0:REF_SAMPLES])
     ref_samples_sum = sum(ref_samples)
+    ref_signal = ref_samples_sum / REF_SAMPLES
     search_samples_left = 0
     max_signal = 0
-    max_diff_sample = (0, 0)
     r_peaks = []
     for sample in enumerate(ecg):
-        if sample[0] < REF_SAMPLES:
-            continue
-        ref_signal = ref_samples_sum / REF_SAMPLES
         signal = sample[1] - ref_signal
         if signal > THRESHOLD:
+            if search_samples_left == 0:
+                search_samples_left = SEARCH_SAMPLES
             if signal > max_signal:
                 max_signal = signal
                 max_diff_sample = sample
-            if search_samples_left <= 0:
-                search_samples_left = SEARCH_SAMPLES
         if search_samples_left == 1:
             r_peaks.append(max_diff_sample)
             max_signal = 0
-            max_diff_sample = (0, 0)
-        search_samples_left -= 1
+        if search_samples_left > 0:
+            search_samples_left -= 1
 
         ref_samples_sum -= ref_samples.pop(0)
         ref_samples_sum += sample[1]
         ref_samples.append(sample[1])
+        ref_signal = ref_samples_sum / REF_SAMPLES
     return r_peaks
 
 
@@ -164,7 +277,8 @@ def get_shift(current_window):
     return len(current_window) - max_elem_idx - 1
 
 
-def ff(ecg):
+def ff(ecg, y_diff):
+    Y_DIFF = y_diff
     # Running median elements
     N = 8
     Nd = 7
@@ -188,7 +302,12 @@ def ff(ecg):
     r_peaks_pos = []
     th = 0
 
-    for value in ecg: 
+    values_sum = 0
+    i_ = 0
+    for value in ecg:
+        values_sum += value
+        i_ += 1
+        mean_signal = values_sum / i_
 
         # collecting initial data
         if i < padding:
@@ -211,7 +330,7 @@ def ff(ecg):
                 max_peak = (i, processed_value, get_shift(current_window))
 
             if counter > rr_min + qrs_interval:
-                if max_peak[1] - 0.056 > processed_value:
+                if max_peak[1] - Y_DIFF > processed_value:
                     counter = i - max_peak[0]
                     state = 2
                     r_peaks.append(max_peak[1])
@@ -235,6 +354,8 @@ def ff(ecg):
         derivated_window.pop(0)
         i += 1
 
+    mean_signal
+    print('mean_signal = ' + str(mean_signal))
     return list(map(lambda x: (x, ecg[x]), r_peaks_pos))
 
 
@@ -271,6 +392,7 @@ def calculate_stats(signal_ch0, annotated_x, detected_x):
                     break
             if not in_y_range_found:
                 f_pos.append(det)
+    print('f_pos: ', f_pos)
     print('t_pos:', len(t_pos), 'f_pos:', len(f_pos), 'f_neg: ', len(f_neg))
     return t_pos, f_pos, f_neg
 
